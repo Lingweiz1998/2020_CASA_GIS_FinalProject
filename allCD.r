@@ -24,7 +24,7 @@ theme_set(theme_minimal())
 
 ##First, get the London Borough Boundaries
 nysbssData0 <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
-                       locale = locale(encoding = "latin1"))
+                        locale = locale(encoding = "latin1"))
 
 nycdistricts <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
@@ -83,7 +83,7 @@ nycnightend <- nycnightend %>% st_transform(.,crs="epsg:2263")
 
 ##choose the observation area
 CDMap1boro <- nycdistricts %>%  
-  filter(borocd < "199") %>% 
+  filter(borocd < "500") %>% 
   `colnames<-`(str_to_lower(colnames(nycdistricts)))
 qtm(CDMap1boro)
 ##Change CRS for boro shp
@@ -100,7 +100,7 @@ nycnightend <- nycnightend[CDMap1boro,]
 tmap_mode("view")
 tm_shape(CDMap1boro) +
   tm_polygons(col = NA, alpha = 0.5) +
-tm_shape(nycmorningstart) +
+  tm_shape(nycmorningstart) +
   tm_dots()
 
 tm_shape(CDMap1boro) +
@@ -110,9 +110,7 @@ tm_shape(CDMap1boro) +
 
 #now set a window as the borough boundary
 window <- as.owin(CDMap1boro)
-dev.new(width=10, height=10)
-plot(window)
-
+#plot(window)
 #create a ppp object
 nycmorningstartsub<- nycmorningstart %>%
   as(., 'Spatial')
@@ -123,26 +121,25 @@ nycnightstartsub<- nycnightstart %>%
 nycnightendsub<- nycnightend %>%
   as(., 'Spatial')
 nycmorningstartsub.ppp <- ppp(x=nycmorningstartsub@coords[,1],
-                          y=nycmorningstartsub@coords[,2],
-                          window=window)
+                              y=nycmorningstartsub@coords[,2],
+                              window=window)
 nycmorningendsub.ppp <- ppp(x=nycmorningendsub@coords[,1],
-                              y=nycmorningendsub@coords[,2],
-                              window=window)
+                            y=nycmorningendsub@coords[,2],
+                            window=window)
 nycnightstartsub.ppp <- ppp(x=nycnightstartsub@coords[,1],
-                              y=nycnightstartsub@coords[,2],
-                              window=window)
+                            y=nycnightstartsub@coords[,2],
+                            window=window)
 nycnightendsub.ppp <- ppp(x=nycnightendsub@coords[,1],
-                              y=nycnightendsub@coords[,2],
-                              window=window)
+                          y=nycnightendsub@coords[,2],
+                          window=window)
 
 nycmorningstartsub.ppp %>%
   plot(.,pch=16,cex=0.5, 
        main="bike start location")
 
 #Kernel Density Estimation
-dev.new(width=10, height=10)
 nycmorningstartsub.ppp %>%
-  density(., sigma=1000) %>%
+  density(., sigma=1500) %>%
   plot(main="morning peak time start")
 nycmorningendsub.ppp %>%
   density(., sigma=1000) %>%
@@ -153,5 +150,3 @@ nycnightstartsub.ppp %>%
 nycnightendsub.ppp %>%
   density(., sigma=1000) %>%
   plot(main="night peak time start")
-
-
