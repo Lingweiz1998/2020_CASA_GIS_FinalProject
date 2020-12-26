@@ -15,20 +15,17 @@ library(tidyverse)
 library(ggthemes)
 library(mapview)
 library(lubridate)
-library(tibbletime)
+library(chron)
 library(ggplot2)
-library(hms)
+
 
 # minimal theme for nice plots throughout the project
 theme_set(theme_minimal())
 
 ##First, get the London Borough Boundaries
-nysbssData0 <- read_csv(here::here("data", "rawdata","202009-citibike-tripdata.csv"),
+nysbssData0 <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
                        locale = locale(encoding = "latin1"))
 nycdistricts <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
-
-#nysbssData0 <- nysbssData0 %>% 
-#  slice(557360:78900)
 
 ## clean name
 colnames(nycdistricts) <- colnames(nycdistricts) %>% 
@@ -43,8 +40,6 @@ colnames(nysbssData0)
 ## unique value
 nysbssData0 <- distinct(nysbssData0)
 
-
-
 ##choose the observation area
 CDMap1boro <- nycdistricts %>%  
   filter(borocd < "199") %>% 
@@ -52,28 +47,30 @@ CDMap1boro <- nycdistricts %>%
 
 qtm(CDMap1boro)
 
+'''
+# split the date and time
+nysbssData0 <- nysbssData0 %>%
+  mutate(
+    startday = date(starttime),
+  )
+nysbssData0$starttime <-strftime(nysbssData0$starttime, format="%H:%M:%S")
+nysbssData0$starttime <- chron(times=nysbssData0$starttime)
+'''
 
-
-## Time Series Analysis
-nysbssData1 <- nysbssData0 %>% select(starttime,stoptime,start_station_latitude,start_station_longitude)
-nysbssData2 <- nysbssData0 %>% select(starttime,stoptime,end_station_latitude,end_station_longitude)
-
-
-
-# format date field
-nysbssData13 <- nysbssData1 %>%
+# filter date 
+nysbssData3 <- nysbssData0 %>%
   filter(starttime >= ymd_hms('20190908 00:00:00') & starttime <= ymd_hms('20190912 00:00:00'))
 
+nysbssData4 <-nysbssData0 %>%
+  filter(starttime >= ymd_hms('20190910 00:00:00') & starttime <= ymd_hms('20190911 00:00:00'))
 
-
-
-
-
+## Time Series Analysis
+nysbssData1 <- nysbssData4 %>% select(starttime,start_station_latitude,start_station_longitude)
+nysbssData2 <- nysbssData4 %>% select(starttime,end_station_latitude,end_station_longitude)
 
 nysbssData1 %>% 
-  filter(aes(starttime) < ymd_hms(20190911000000))
   ggplot(aes(starttime)) + 
-  geom_freqpoly(binwidth = 86400)
+  geom_freqpoly(binwidth = 600)
 
 
 ## st to sf
