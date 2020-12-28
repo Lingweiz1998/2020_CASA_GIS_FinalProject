@@ -30,6 +30,9 @@ nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
 
 nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
+#nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Census_Blocks_for_2010_US_Census/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
+
+
 ## clean name
 colnames(nycd) <- colnames(nycd) %>% 
   str_to_lower() %>% 

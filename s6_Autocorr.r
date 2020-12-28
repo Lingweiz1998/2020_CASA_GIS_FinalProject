@@ -19,16 +19,12 @@ points_sf_joined <- CDMap1boro%>%
   dplyr::select(density, borocd, n)
 
 
-
-
 points_sf_joined<- points_sf_joined %>%                    
   group_by(borocd) %>%         
   summarise(density = first(density),
             borocd= first(borocd),
             count= first(n))
 
-points_sf_joined<- points_sf_joined %>%  
-  filter(count != 1)
 
 tm_shape(points_sf_joined) +
   tm_polygons("density",
@@ -48,38 +44,39 @@ plot(coordsW,axes=TRUE)
 
 #create a neighbours list
 
-LWard_nb <- points_sf_joined %>%
+nyccd_nb <- points_sf_joined %>%
   poly2nb(., queen=T)
 
 #plot them
-plot(LWard_nb, st_geometry(coordsW), col="red")
+plot(nyccd_nb, st_geometry(coordsW), col="red")
 #add a map underneath
 plot(points_sf_joined$geometry, add=T)
 
 #create a spatial weights object from these weights
-Lward.lw <- LWard_nb %>%
+nyccd.nb <- nyccd_nb %>%
   nb2listw(., style="C")
-head(Lward.lw$neighbours)
+
+head(nyccd.nb$neighbours)
 
 ## Testing
 I_CD_Global_Density  <- points_sf_joined %>%
   pull(density) %>%
   as.vector()%>%
-  moran.test(., Lward.lw)
+  moran.test(., nyccd.nb)
 I_CD_Global_Density
 
 C_CD_Global_Density <- 
   points_sf_joined %>%
   pull(density) %>%
   as.vector()%>%
-  geary.test(., Lward.lw)
+  geary.test(., nyccd.nb)
 C_CD_Global_Density
 
 G_CD_Global_Density <- 
   points_sf_joined %>%
   pull(density) %>%
   as.vector()%>%
-  globalG.test(., Lward.lw)
+  globalG.test(., nyccd.nb)
 G_CD_Global_Density
 
 #use the localmoran function to generate I for each ward in the city
@@ -87,13 +84,13 @@ G_CD_Global_Density
 I_CD_Local_count <- points_sf_joined %>%
   pull(count) %>%
   as.vector()%>%
-  localmoran(., Lward.lw)%>%
+  localmoran(., nyccd.nb)%>%
   as_tibble()
 
 I_CD_Local_Density <- points_sf_joined %>%
   pull(density) %>%
   as.vector()%>%
-  localmoran(., Lward.lw)%>%
+  localmoran(., nyccd.nb)%>%
   as_tibble()
 
 #what does the output (the localMoran object) look like?
@@ -115,3 +112,23 @@ tm_shape(points_sf_joined) +
               palette=MoranColours,
               midpoint=NA,
               title="Local Moran's I, Share bike in NYC")
+
+## Getis Ord  G∗i statisic for hot and cold spots
+Gi_cd_Local_Density <- points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  localG(., Lward.lw)
+head(Gi_cd_Local_Density)
+
+points_sf_joined <- points_sf_joined %>%
+  mutate(density_G = as.numeric(Gi_cd_Local_Density))
+
+GIColours<- rev(brewer.pal(8, "RdBu"))
+#now plot on an interactive map
+tm_shape(points_sf_joined) +
+  tm_polygons("density_G",
+              style="fixed",
+              breaks=breaks1,
+              palette=GIColours,
+              midpoint=NA,
+              title="Gi*, share bike in NYC")
