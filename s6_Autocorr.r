@@ -117,7 +117,7 @@ tm_shape(points_sf_joined) +
 Gi_cd_Local_Density <- points_sf_joined %>%
   pull(density) %>%
   as.vector()%>%
-  localG(., Lward.lw)
+  localG(., nyccd.nb)
 head(Gi_cd_Local_Density)
 
 points_sf_joined <- points_sf_joined %>%
