@@ -33,11 +33,6 @@ library(tmaptools)
 theme_set(theme_minimal())
 
 ##First, get the London Borough Boundaries
-nyfc <- read_csv(here::here("data", "rawdata","facilities_201912csv","facilities_201912.csv"),
-                 na = c("", "NA", "n/a"), 
-                 locale = locale(encoding = 'Latin1'), 
-                 col_names = TRUE)
-
 nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
 nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
