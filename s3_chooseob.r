@@ -2,7 +2,7 @@
 CDMap1boro <- nycd %>%  
   filter(borocd >= "355" & borocd <= "402" & borocd != "356"| borocd >= "301" & borocd <= "309" & borocd != "305"| borocd <= "164" & borocd != "112" ) %>% 
   `colnames<-`(str_to_lower(colnames(nycd)))
-qtm(CDMap1boro)
+#qtm(CDMap1boro)
 
 ##Change CRS for boro shp
 CDMap1boro <- CDMap1boro %>% 
