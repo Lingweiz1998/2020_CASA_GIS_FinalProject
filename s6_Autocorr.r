@@ -93,9 +93,6 @@ I_CD_Local_Density <- points_sf_joined %>%
   localmoran(., nyccd.nb)%>%
   as_tibble()
 
-#what does the output (the localMoran object) look like?
-slice_head(I_CD_Local_Density, n=5)
-
 points_sf_joined <- points_sf_joined %>%
   mutate(bike_count_I = as.numeric(I_CD_Local_count$Ii))%>%
   mutate(bike_count_Iz =as.numeric(I_CD_Local_count$Z.Ii))%>%

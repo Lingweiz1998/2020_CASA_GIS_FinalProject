@@ -1,38 +1,47 @@
 #set up for library
-library(spatstat)
-library(here)
-library(sp)
-library(rgeos)
-library(maptools)
-library(GISTools)
-library(tmap)
-library(sf)
+
+library(broom)
+library(car)
+library(chron)
+library(crosstalk)
+library(fs)
+library(fpc)
 library(geojson)
 library(geojsonio)
-library(tmaptools)
-library(stringr)
-library(tidyverse)
-library(ggthemes)
-library(mapview)
-library(lubridate)
-library(chron)
 library(ggplot2)
+library(ggthemes)
+library(GISTools)
+library(here)
+library(janitor)
+library(lubridate)
+library(maptools)
+library(mapview)
+library(plotly)
 library(raster)
-library(fpc)
+library(rgdal)
+library(rgeos)
 library(spdep)
+library(sf)
+library(stringr)
+library(sp)
+library(spatstat)
+library(tidyverse)
+library(tmap)
+library(tmaptools)
 
 # minimal theme for nice plots throughout the project
 theme_set(theme_minimal())
 
 ##First, get the London Borough Boundaries
-nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
-                        locale = locale(encoding = "latin1"))
+nyfc <- read_csv(here::here("data", "rawdata","facilities_201912csv","facilities_201912.csv"),
+                 na = c("", "NA", "n/a"), 
+                 locale = locale(encoding = 'Latin1'), 
+                 col_names = TRUE)
 
 nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
-#nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Census_Blocks_for_2010_US_Census/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
-
-
+nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
+               locale = locale(encoding = "latin1"))
 ## clean name
 colnames(nycd) <- colnames(nycd) %>% 
   str_to_lower() %>% 
