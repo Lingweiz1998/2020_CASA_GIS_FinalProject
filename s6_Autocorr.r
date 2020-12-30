@@ -18,20 +18,19 @@ points_sf_joined <- CDMap1boro%>%
   #select density and some other variables 
   dplyr::select(density, borocd, n)
 
-
 points_sf_joined<- points_sf_joined %>%                    
   group_by(borocd) %>%         
   summarise(density = first(density),
             borocd= first(borocd),
             count= first(n))
-
+points_sf_joined$density_scaled <- scale(points_sf_joined$density,center = FALSE, scale = TRUE)
 
 tm_shape(points_sf_joined) +
-  tm_polygons("density",
+  tm_polygons("density_scaled",
               style="jenks",
               palette="PuOr",
               midpoint=NA,
-              popup.vars=c("borocd", "density"),
+              popup.vars=c("bctcb2010", "density_scaled"),
               title="share bike density")
 
 #First calculate the centroids of all Wards in London
