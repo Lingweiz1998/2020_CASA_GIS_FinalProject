@@ -31,6 +31,11 @@ nycnightend <- nycnightend[CDMap1boro,]
 ##compare data in map
 tmap_mode("plot")
 tm_shape(CDMap1boro) +
-  tm_polygons(col = NA, alpha = 0.5) +
-  tm_shape(nbday_start) +
-  tm_dots()
+  tm_polygons("borocd",
+              title="community district code")+
+  tm_layout(main.title = "CITI bike available area in NYC")
+CDMap1boro %>% 
+  ggplot() +
+  # nyc neighborhoods outlines overlaid in orange
+  geom_sf(data = CDMap1boro, size = 1, fill = NA) +
+  ggtitle("CITI bike available area in NYC")

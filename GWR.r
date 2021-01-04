@@ -175,6 +175,7 @@ colnames(gwrfc)
 breaks = c(0,0.2,0.4,0.6,0.8,1) 
 
 # plot each map
+tmap_mode("plot")
 tm1 <- tm_shape(gwrfc) + 
   tm_polygons("density_edu", 
               palette="PuBu")+
@@ -218,13 +219,13 @@ tm6 <- tm_shape(gwrfc)+
   tm_credits("(f)", position=c(0,0.85), size=1.5)
 
 legend <- tm_shape(gwrfc) +
-  tm_polygons("density_edu",
+  tm_polygons("density_park",
               palette="PuBu",
               title = "Density of Facilities") +
   tm_scale_bar(position=c(0.2,0.04), text.size=0.6)+
   tm_compass(north=0, position=c(0.025,0.6))+
   tm_layout(legend.only = TRUE, legend.position=c(0.2,0.25),asp=0.1)+
-  tm_credits("(c) OpenStreetMap contrbutors", position=c(0.025,0.0))
+  tm_credits("OpenStreetMap contrbutors", position=c(0.025,0.0))
 
 t=tmap_arrange(tm1, tm2, tm3,tm4,tm5,tm6, legend, ncol=4)
 
@@ -232,7 +233,7 @@ t
 
 
  #plot with a regression line - note, I've added some jitter here as the x-scale is rounded
-q <- qplot(x = `density_publi_scaled`, 
+q <- qplot(x = `density_edu_scaled`, 
            y = `density_scaled`, 
            data=gwrfc)
 q + stat_smooth(method="lm", se=FALSE, size=1) + 
