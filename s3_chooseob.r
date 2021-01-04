@@ -29,7 +29,7 @@ nycnightstart <- nycnightstart[CDMap1boro,]
 nycnightend <- nycnightend[CDMap1boro,]
 
 ##compare data in map
-tmap_mode("view")
+tmap_mode("plot")
 tm_shape(CDMap1boro) +
   tm_polygons(col = NA, alpha = 0.5) +
   tm_shape(nbday_start) +

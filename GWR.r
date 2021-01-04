@@ -172,7 +172,66 @@ gwrfc <- gwrfc%>%
             by = c("borocd" = "borocd"))
 colnames(gwrfc)
 
-#plot with a regression line - note, I've added some jitter here as the x-scale is rounded
+breaks = c(0,0.2,0.4,0.6,0.8,1) 
+
+# plot each map
+tm1 <- tm_shape(gwrfc) + 
+  tm_polygons("density_edu", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(a)", position=c(0,0.85), size=1.5)
+
+tm2 <- tm_shape(gwrfc) + 
+  tm_polygons("density_heal",
+              palette="PuBu") + 
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(b)", position=c(0,0.85), size=1.5)
+
+tm3 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_park", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(c)", position=c(0,0.85), size=1.5)
+
+tm4 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_publi", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(d)", position=c(0,0.85), size=1.5)
+
+tm5 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_admin", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(e)", position=c(0,0.85), size=1.5)
+
+tm6 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_lib", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(f)", position=c(0,0.85), size=1.5)
+
+legend <- tm_shape(gwrfc) +
+  tm_polygons("density_edu",
+              palette="PuBu",
+              title = "Density of Facilities") +
+  tm_scale_bar(position=c(0.2,0.04), text.size=0.6)+
+  tm_compass(north=0, position=c(0.025,0.6))+
+  tm_layout(legend.only = TRUE, legend.position=c(0.2,0.25),asp=0.1)+
+  tm_credits("(c) OpenStreetMap contrbutors", position=c(0.025,0.0))
+
+t=tmap_arrange(tm1, tm2, tm3,tm4,tm5,tm6, legend, ncol=4)
+
+t
+
+
+ #plot with a regression line - note, I've added some jitter here as the x-scale is rounded
 q <- qplot(x = `density_publi_scaled`, 
            y = `density_scaled`, 
            data=gwrfc)

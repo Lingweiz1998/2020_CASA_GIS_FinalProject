@@ -23,15 +23,17 @@ points_sf_joined<- points_sf_joined %>%
   summarise(density = first(density),
             borocd= first(borocd),
             count= first(n))
-points_sf_joined$density_scaled <- scale(points_sf_joined$density,center = FALSE, scale = TRUE)
 
 tm_shape(points_sf_joined) +
-  tm_polygons("density_scaled",
+  tm_polygons("density",
               style="jenks",
               palette="PuOr",
               midpoint=NA,
-              popup.vars=c("bctcb2010", "density_scaled"),
+              popup.vars=c("borocd", "density"),
               title="share bike density")
+
+points_sf_joined$density_scaled <- scale(points_sf_joined$density,center = FALSE, scale = TRUE)
+
 
 #First calculate the centroids of all Wards in London
 
@@ -107,7 +109,12 @@ tm_shape(points_sf_joined) +
               breaks=breaks1,
               palette=MoranColours,
               midpoint=NA,
-              title="Local Moran's I, Share bike in NYC")
+              title="Local Moran's I")+
+  tm_compass(position = c("right", "bottom"))+
+  tm_scale_bar(position = c("right", "bottom"))+
+  tm_layout(main.title = "Local Moran's I, Share bike in NYC")
+
+
 
 ## Getis Ord  G∗i statisic for hot and cold spots
 Gi_cd_Local_Density <- points_sf_joined %>%
@@ -127,4 +134,7 @@ tm_shape(points_sf_joined) +
               breaks=breaks1,
               palette=GIColours,
               midpoint=NA,
-              title="Gi*, share bike in NYC")
+              title="Gi*")+
+  tm_compass(position = c("right", "bottom"))+
+  tm_scale_bar(position = c("right", "bottom"))+
+  tm_layout(main.title = "Gi*, share bike in NYC")

@@ -33,7 +33,7 @@ library(tmap)
 library(tmaptools)
 
 # minimal theme for nice plots throughout the project
-theme_set(theme_minimal())
+theme_set(theme_bw)
 
 ##First, get the London Borough Boundaries
 nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
