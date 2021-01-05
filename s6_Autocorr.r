@@ -109,10 +109,10 @@ tm_shape(points_sf_joined) +
               breaks=breaks1,
               palette=MoranColours,
               midpoint=NA,
-              title="Local Moran's I")+
+              title="Local Moran's I, shared bike in NYC")+
   tm_compass(position = c("right", "bottom"))+
   tm_scale_bar(position = c("right", "bottom"))+
-  tm_layout(main.title = "Local Moran's I, Share bike in NYC")
+  tm_layout(legend.outside = TRUE)
 
 
 

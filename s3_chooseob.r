@@ -1,6 +1,6 @@
 ##choose the observation area (No Staten island because of long bridge and no observation there)
 CDMap1boro <- nycd %>%  
-  filter(borocd >= "355" & borocd <= "402" & borocd != "356"| borocd >= "301" & borocd <= "309" & borocd != "305"| borocd <= "164" & borocd != "112" ) %>% 
+  #filter(borocd >= "355" & borocd <= "402" & borocd != "356"| borocd >= "301" & borocd <= "309" & borocd != "305"| borocd <= "164" & borocd != "112" ) %>% 
   `colnames<-`(str_to_lower(colnames(nycd)))
 
 #qtm(CDMap1boro)
