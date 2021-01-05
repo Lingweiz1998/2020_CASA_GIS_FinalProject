@@ -75,6 +75,23 @@ gwrfc_heal<- gwrfc_heal %>%
   st_drop_geometry()
 gwrfc_heal$density_heal_scaled <- scale(gwrfc_heal$density_heal,center = FALSE, scale = TRUE)
 
+## tans file
+gwrfc_tran <- CDMap1boro%>%
+  st_join(fc_tran)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_tran<- gwrfc_tran %>%                    
+  group_by(borocd) %>%         
+  summarise(density_tran = first(density),
+            borocd= first(borocd),
+            count_tran= first(n))
+gwrfc_tran<- gwrfc_tran %>%
+  st_drop_geometry()
+gwrfc_tran$density_tran_scaled <- scale(gwrfc_tran$density_tran,center = FALSE, scale = TRUE)
+
 ## park file
 gwrfc_park <- CDMap1boro%>%
   st_join(fc_park)%>%
@@ -156,6 +173,10 @@ gwrfc <- gwrfc%>%
             by = c("borocd" = "borocd"))
 gwrfc <- gwrfc%>%
   left_join(.,
+            gwrfc_tran, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
             gwrfc_park, 
             by = c("borocd" = "borocd"))
 gwrfc <- gwrfc%>%
@@ -189,51 +210,55 @@ tm2 <- tm_shape(gwrfc) +
   tm_legend(show=FALSE)+
   tm_layout(frame=FALSE)+
   tm_credits("(b)", position=c(0,0.85), size=1.5)
-
-tm3 <- tm_shape(gwrfc)+ 
-  tm_polygons("density_park", 
-              palette="PuBu")+
+tm3 <- tm_shape(gwrfc) + 
+  tm_polygons("density_tran",
+              palette="PuBu") + 
   tm_legend(show=FALSE)+
   tm_layout(frame=FALSE)+
   tm_credits("(c)", position=c(0,0.85), size=1.5)
-
 tm4 <- tm_shape(gwrfc)+ 
-  tm_polygons("density_publi", 
+  tm_polygons("density_park", 
               palette="PuBu")+
   tm_legend(show=FALSE)+
   tm_layout(frame=FALSE)+
   tm_credits("(d)", position=c(0,0.85), size=1.5)
 
 tm5 <- tm_shape(gwrfc)+ 
-  tm_polygons("density_admin", 
+  tm_polygons("density_publi", 
               palette="PuBu")+
   tm_legend(show=FALSE)+
   tm_layout(frame=FALSE)+
   tm_credits("(e)", position=c(0,0.85), size=1.5)
 
 tm6 <- tm_shape(gwrfc)+ 
-  tm_polygons("density_lib", 
+  tm_polygons("density_admin", 
               palette="PuBu")+
   tm_legend(show=FALSE)+
   tm_layout(frame=FALSE)+
   tm_credits("(f)", position=c(0,0.85), size=1.5)
+
+tm7 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_lib", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(g)", position=c(0,0.85), size=1.5)
 
 legend <- tm_shape(gwrfc) +
   tm_polygons("density_park",
               palette="PuBu",
               title = "Density of Facilities") +
   tm_scale_bar(position=c(0.2,0.04), text.size=0.6)+
-  tm_compass(north=0, position=c(0.025,0.6))+
-  tm_layout(legend.only = TRUE, legend.position=c(0.2,0.25),asp=0.1)+
-  tm_credits("OpenStreetMap contrbutors", position=c(0.025,0.0))
+  tm_compass(north=0, position=c(0.025,0.4))+
+  tm_layout(legend.only = TRUE, legend.position=c(0.2,0.25),asp=0.1)
 
-t=tmap_arrange(tm1, tm2, tm3,tm4,tm5,tm6, legend, ncol=4)
+t=tmap_arrange(tm1, tm2, tm3,tm4,tm5,tm6,tm7, legend, ncol=4)
 
 t
 
 
  #plot with a regression line - note, I've added some jitter here as the x-scale is rounded
-q <- qplot(x = `density_edu_scaled`, 
+q <- qplot(x = `density_tran_scaled`, 
            y = `density_scaled`, 
            data=gwrfc)
 q + stat_smooth(method="lm", se=FALSE, size=1) + 
@@ -259,6 +284,7 @@ gwrfc_1 <- gwrfc %>%
   dplyr::select(density_scaled,
                 density_edu_scaled,
                 density_heal_scaled,
+                density_tran_scaled,
                 density_park_scaled,
                 density_publi_scaled,
                 density_admin_scaled,
@@ -272,7 +298,8 @@ Correlation_myvars <- myvars %>%
 #run a final OLS model
 model_final <- lm(density_scaled ~ density_edu_scaled + 
                     density_heal_scaled + 
-                    density_park_scaled + 
+                    density_tran_scaled +
+                    density_park_scaled +
                     density_lib_scaled, 
                   data = gwrfc_1)
 summary(model_final)
@@ -311,6 +338,7 @@ coordsWSP <- coordsW %>%
 #calculate kernel bandwidth
 GWRbandwidth <- gwr.sel(density_scaled ~ density_edu_scaled + 
                           density_heal_scaled + 
+                          density_tran_scaled +
                           density_park_scaled + 
                           density_lib_scaled, 
                         data = gwrfc_1SP, 
@@ -351,4 +379,5 @@ gwrfc_2 <- gwrfc_2 %>%
   mutate(GWRlib = sigTest)
 tm_shape(gwrfc_2) +
   tm_polygons(col = "GWRlib", 
-              palette = "RdYlBu")
+              palette = "RdYlBu",
+              alpha = 0.5)
