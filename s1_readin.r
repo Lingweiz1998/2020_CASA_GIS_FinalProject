@@ -43,6 +43,15 @@ nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/servi
 
 nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
                locale = locale(encoding = "utf-8"))
+
+nb <- read_csv(unz(here::here("data", "rawdata","201909-citibike-tripdata.zip"),
+                     "201909-citibike-tripdata.csv"),
+               locale = locale(encoding = "utf-8")
+                 )
+
+id <- "0B-wuZ2XMFIBUd09Ob0pKVkRzQTA" # google file ID
+read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", id))
+
 ## clean name
 colnames(nycd) <- colnames(nycd) %>% 
   str_to_lower() %>% 

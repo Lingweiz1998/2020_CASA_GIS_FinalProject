@@ -2,7 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-
 *.csv
 
-data/rawdata/
+data/rawdata/zipfile/
+
+*.pdf
