@@ -1,0 +1,65 @@
+---
+title: "gis assignment for CASA"
+author: "Lingwei ZHENG"
+date: "2021/1/9"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploring the factors affecting bike-sharing travel patterns from a spatial perspective: The case study of New York's Citi Bike
+
+this study aims to look at the travel patterns of bicycle sharing from a spatial perspective and use spatial lag regression models, spatial error regression models and geographically weighted regression models to incorporate spatial autocorrelation factors into the study model. By comparing these models, the impact of surrounding facilities on demand for bicycle sharing travel is investigated. The study area is the coverage area of Citi Bike New York. This study answers two main questions: 
+1: what the daily travel patterns of bike-sharing are
+2: whether the travel patterns of bike-sharing receive other factors' influence.
+
+## Firstly, set the library
+```{r}
+library(broom)
+library(car)
+library(chron)
+library(corrr)
+library(crosstalk)
+library(fs)
+library(fpc)
+library(geojson)
+library(geojsonio)
+library(ggplot2)
+library(ggthemes)
+library(GISTools)
+library(GWmodel)
+library(here)
+library(janitor)
+library(lubridate)
+library(maptools)
+library(mapview)
+library(plotly)
+library(qpcR)
+library(raster)
+library(rgdal)
+library(rgeos)
+library(scales)
+library(sf)
+library(stringr)
+library(sp)
+library(spatstat)
+library(spatialreg)
+library(spdep)
+library(spgwr)
+library(tidyverse)
+library(tmap)
+library(tmaptools)
+```
+
+## Import the main dataset
+
+load the bike share dataset and map
+
+```{r}
+
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
