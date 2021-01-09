@@ -394,11 +394,11 @@ first load the facilities file
 nyfc <- read_csv(("https://opendata.arcgis.com/datasets/620697560c3e4070a3623ac216b82ca6_0.csv"),
                  na = c("", "NA", "n/a"), 
                  locale = locale(encoding = 'utf-8'),
+                 col_names = TRUE)
 ```
 
 
 ```{r}
-col_names = TRUE)
 
 colnames(nyfc) <- colnames(nyfc) %>% 
   str_to_lower() %>% 
