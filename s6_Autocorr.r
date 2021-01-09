@@ -1,12 +1,10 @@
-st_crs(CDMap1boro)
-
-
+'''
 tmap_mode("view")
 tm_shape(CDMap1boro) +
   tm_polygons(col = NA, alpha = 0.5) +
   tm_shape(nbday_start) +
   tm_dots(col = "blue")
-
+'''
 points_sf_joined <- CDMap1boro%>%
   st_join(nbday_start)%>%
   add_count(borocd)%>%
@@ -30,7 +28,10 @@ tm_shape(points_sf_joined) +
               palette="PuOr",
               midpoint=NA,
               popup.vars=c("borocd", "density"),
-              title="share bike density")
+              title="shared bike density")+
+  tm_compass(position = c("right", "bottom"))+
+  tm_scale_bar(position = c("right", "bottom"))+
+  tm_layout(legend.outside = TRUE)
 
 points_sf_joined$density_scaled <- scale(points_sf_joined$density,center = FALSE, scale = TRUE)
 
@@ -116,7 +117,7 @@ tm_shape(points_sf_joined) +
 
 
 
-## Getis Ord  G∗i statisic for hot and cold spots
+                               ## Getis Ord  G∗i statisic for hot and cold spots
 Gi_cd_Local_Density <- points_sf_joined %>%
   pull(density) %>%
   as.vector()%>%
@@ -128,13 +129,14 @@ points_sf_joined <- points_sf_joined %>%
 
 GIColours<- rev(brewer.pal(8, "RdBu"))
 #now plot on an interactive map
+tmap_mode("plot")
 tm_shape(points_sf_joined) +
   tm_polygons("density_G",
               style="fixed",
               breaks=breaks1,
-              palette=GIColours,
+              palette=MoranColours,
               midpoint=NA,
               title="Gi*")+
   tm_compass(position = c("right", "bottom"))+
   tm_scale_bar(position = c("right", "bottom"))+
-  tm_layout(main.title = "Gi*, share bike in NYC")
+  tm_layout(legend.outside = TRUE)

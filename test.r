@@ -1,4 +1,4 @@
-nyct <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Atomic_Polygons/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=geojson")
+nycd <- st_read(here::here("data", "rawdata","nyccitibikearea1.geojson"))
 
 nyct <- nyct %>% 
   st_transform(.,crs = "epsg:2263")
@@ -17,3 +17,16 @@ map1 <- st_make_grid(CDMap1boro, square = T, cellsize = c(grid_spacing, grid_spa
   st_sf() # not really required, but makes the grid nicer to work with later
 plot(map1, col = 'white')
 plot(st_geometry(CDMap1boro), add = T)
+
+
+nycd <- nycd %>%
+  dplyr::select(poly_id,geometry,area)
+CDMap1boro <- nycd %>% 
+  dplyr::rename(borocd = poly_id)
+CDMap1boro <- CDMap1boro %>% 
+  mutate(area = scale(area,center = FALSE))
+
+CDMap1boro <- CDMap1boro%>%
+  filter(borocd >= "251")
+tmap_mode("view")
+qtm(CDMap1boro)

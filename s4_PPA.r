@@ -4,6 +4,8 @@ window <- as.owin(CDMap1boro)
 #create a ppp object
 nbday_start_sub<- nbday_start %>%
   as(., 'Spatial')
+nbday_end_sub<- nbday_end %>%
+  as(., 'Spatial')
 nycmorningstart_sub<- nycmorningstart %>%
   as(., 'Spatial')
 nycmorningend_sub<- nycmorningend %>%
@@ -16,6 +18,9 @@ nycnightend_sub<- nycnightend %>%
 nbday_start_sub.ppp <- ppp(x=nbday_start_sub@coords[,1],
                               y=nbday_start_sub@coords[,2],
                               window=window)
+nbday_end_sub.ppp <- ppp(x=nbday_end_sub@coords[,1],
+                           y=nbday_end_sub@coords[,2],
+                           window=window)
 nycmorningstart_sub.ppp <- ppp(x=nycmorningstart_sub@coords[,1],
                            y=nycmorningstart_sub@coords[,2],
                            window=window)

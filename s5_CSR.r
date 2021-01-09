@@ -1,5 +1,5 @@
 ## Ripley’s K
-K <- nbday_start_sub.ppp %>%
+K <- nbday_end_sub.ppp %>%
   Kest(., correction="border") %>%
   plot()
 

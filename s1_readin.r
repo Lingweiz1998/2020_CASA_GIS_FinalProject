@@ -12,12 +12,14 @@ library(geojsonio)
 library(ggplot2)
 library(ggthemes)
 library(GISTools)
+library(GWmodel)
 library(here)
 library(janitor)
 library(lubridate)
 library(maptools)
 library(mapview)
 library(plotly)
+library(qpcR)
 library(raster)
 library(rgdal)
 library(rgeos)
@@ -26,21 +28,21 @@ library(sf)
 library(stringr)
 library(sp)
 library(spatstat)
+library(spatialreg)
 library(spdep)
 library(spgwr)
 library(tidyverse)
 library(tmap)
 library(tmaptools)
 
-# minimal theme for nice plots throughout the project
-theme_set(theme_bw)
+
 
 ##First, get the London Borough Boundaries
-nycd <- st_read(here::here("data", "rawdata","dividedmap_citibike.geojson"))
+nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
 
 nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
-               locale = locale(encoding = "latin1"))
+               locale = locale(encoding = "utf-8"))
 ## clean name
 colnames(nycd) <- colnames(nycd) %>% 
   str_to_lower() %>% 
@@ -55,10 +57,7 @@ nb <- distinct(nb)
 # choose columns
 nb <- nb %>% 
   dplyr::select(starttime,start_station_latitude,start_station_longitude,end_station_latitude,end_station_longitude)
-nycd <- nycd %>%
-  dplyr::select(poly_id,geometry)
-nycd <- nycd %>%
-  rename(borocd = poly_id)
+
 
 
 # filter date 

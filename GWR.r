@@ -2,7 +2,7 @@
 
 nyfc <- read_csv(here::here("data", "rawdata","facilities_201912csv","facilities_201912.csv"),
                  na = c("", "NA", "n/a"), 
-                 locale = locale(encoding = 'latin1'), 
+                 locale = locale(encoding = 'utf-8'), 
                  col_names = TRUE)
 
 colnames(nyfc) <- colnames(nyfc) %>% 
@@ -193,8 +193,6 @@ gwrfc <- gwrfc%>%
             by = c("borocd" = "borocd"))
 colnames(gwrfc)
 
-breaks = c(0,0.2,0.4,0.6,0.8,1) 
-
 # plot each map
 tmap_mode("plot")
 tm1 <- tm_shape(gwrfc) + 
@@ -256,8 +254,7 @@ t=tmap_arrange(tm1, tm2, tm3,tm4,tm5,tm6,tm7, legend, ncol=4)
 
 t
 
-
- #plot with a regression line - note, I've added some jitter here as the x-scale is rounded
+#plot with a regression line - note, I've added some jitter here as the x-scale is rounded
 q <- qplot(x = `density_tran_scaled`, 
            y = `density_scaled`, 
            data=gwrfc)
@@ -296,15 +293,20 @@ Correlation_myvars <- myvars %>%
   correlate()
 '''
 #run a final OLS model
-model_final <- lm(density_scaled ~ density_edu_scaled + 
-                    density_heal_scaled + 
-                    density_tran_scaled +
-                    density_park_scaled +
-                    density_lib_scaled, 
+model_final <- lm(density_scaled ~  
+                  density_edu_scaled+
+                  density_heal_scaled+
+                  density_tran_scaled+
+                  density_park_scaled+
+                  density_admin_scaled,
                   data = gwrfc_1)
-summary(model_final)
-tidy(model_final)
 vif(model_final)
+tidy(model_final)
+summary(model_final)
+glance(model_final)
+anova(model_final)
+AICc(model_final)
+
 ##residuals
 model_data <- model_final %>%
   augment(., gwrfc_1)
@@ -326,58 +328,83 @@ plot(model_final)
 tmap_mode("view")
 qtm(gwrfc_1, fill = "modelOLSresids")
 
-par(mfrow=c(1,1))    #plot to 1 by 1 array
-plot(nyccd_nb, st_geometry(coordsW), col="red")
+#knn
+knn_nyccd <-coordsW %>%
+  knearneigh(., k=4)
+nyccd_knn <- knn_nyccd %>%
+  knn2nb()
+nyccd_knn_weight <- nyccd_knn %>%
+  nb2listw(., style="C")
+#queen
+nyccd_nb_weight <- nyccd_nb %>%
+  nb2listw(., style="C")
 
-gwrfc_1SP <- gwrfc_1 %>%
-  as(., "Spatial")
+Queen  <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(modelOLSresids)%>%
+  pull()%>%
+  moran.test(., nyccd_nb_weight)%>%
+  tidy()
+Nearest_neighbour <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(modelOLSresids)%>%
+  pull()%>%
+  moran.test(., nyccd_knn_weight)%>%
+  tidy()
+Queen 
+Nearest_neighbour
+#spatial lag regre
+model_final2queen <- lagsarlm(density_scaled ~  
+                                density_edu_scaled+
+                                density_heal_scaled+
+                                density_tran_scaled+
+                                density_park_scaled+
+                                density_admin_scaled,
+                                data = gwrfc_1, 
+                                nb2listw(nyccd_nb, style="C"), 
+                                method = "eigen")
+tidy(model_final2queen)
+summary(model_final2queen)
+glance(model_final2queen)
+anova(model_final2queen)
+AICc(model_final2queen)
 
-st_crs(coordsW) = 'epsg:2263'
-coordsWSP <- coordsW %>%
-  as(., "Spatial")
-#calculate kernel bandwidth
-GWRbandwidth <- gwr.sel(density_scaled ~ density_edu_scaled + 
-                          density_heal_scaled + 
-                          density_tran_scaled +
-                          density_park_scaled + 
-                          density_lib_scaled, 
-                        data = gwrfc_1SP, 
-                        coords=coordsWSP,
-                        adapt=T)
-#run the gwr model
-gwr.model = gwr(density_scaled ~ density_edu_scaled + 
-                  density_heal_scaled + 
-                  density_park_scaled + 
-                  density_lib_scaled, 
-                data = gwrfc_1SP, 
-                coords=coordsWSP, 
-                adapt=GWRbandwidth, 
-                hatmatrix=TRUE, 
-                se.fit=TRUE)
-gwr.model
+gwrfc_1 <- gwrfc_1 %>%
+  mutate(slag_dv_model2_queen_resids = residuals(model_final2queen))
+queenMoran <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(slag_dv_model2_queen_resids)%>%
+  pull()%>%
+  moran.test(., nyccd_nb_weight)%>%
+  tidy()
+queenMoran
 
-results <- as.data.frame(gwr.model$SDF)
-names(results)
+#spatial error regre
+model_final3 <- errorsarlm(density_scaled ~  
+                             density_edu_scaled+
+                             density_heal_scaled+
+                             density_tran_scaled+
+                             density_park_scaled+
+                             density_admin_scaled,
+                           data = gwrfc_1, 
+                         nb2listw(nyccd_nb, style="C"), 
+                         method = "eigen")
+tidy(model_final3)
+summary(model_final3)
+glance(model_final3)
+anova(model_final3)
+AICc(model_final3)
 
-#attach coefficients to original SF
+gwrfc_1 <- gwrfc_1 %>%
+  mutate(ser_dv_model3_queen_resids = residuals(model_final3))
+queenMoran2 <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(ser_dv_model3_queen_resids)%>%
+  pull()%>%
+  moran.test(., nyccd_nb_weight)%>%
+  tidy()
+queenMoran2
 
-gwrfc_2 <- gwrfc_1 %>%
-  mutate(coefedu = results$density_edu_scaled,
-         coefheal = results$density_heal_scaled,
-         coefpar = results$density_park_scaled,
-         coeflib = results$density_lib_scaled)
-tm_shape(gwrfc_2) +
-  tm_polygons(col = "coeflib", 
-              palette = "RdBu", 
-              alpha = 0.5)
-#run the significance test
-sigTest = abs(gwr.model$SDF$"density_lib_scaled")-2 * gwr.model$SDF$"density_lib_scaled_se"
-
-
-#store significance results
-gwrfc_2 <- gwrfc_2 %>%
-  mutate(GWRlib = sigTest)
-tm_shape(gwrfc_2) +
-  tm_polygons(col = "GWRlib", 
-              palette = "RdYlBu",
-              alpha = 0.5)
+#now plot the residuals
+tmap_mode("view")
+qtm(gwrfc_1, fill = "ser_dv_model3_queen_resids")
