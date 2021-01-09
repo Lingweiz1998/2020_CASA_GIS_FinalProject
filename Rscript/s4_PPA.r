@@ -35,6 +35,7 @@ nycnightend_sub.ppp <- ppp(x=nycnightend_sub@coords[,1],
                            window=window)
 
 #Kernel Density Estimation
+par(mfrow=c(2,2)) #plot to 2 by 2 array
 nycmorningstart_sub.ppp %>%
   density(., sigma=1500) %>%
   plot(main="morning start location")

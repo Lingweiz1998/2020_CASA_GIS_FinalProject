@@ -2,7 +2,9 @@
 title: "gis assignment for CASA"
 author: "Lingwei ZHENG"
 date: "2021/1/9"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -58,8 +60,791 @@ library(tmaptools)
 load the bike share dataset and map
 
 ```{r}
+##First, get the London Borough Boundaries
+temp <- tempfile(fileext = ".zip")
+download.file("https://github.com/Lingweiz1998/FPgis/raw/master/data/201909-citibike-tripdata.zip",
+              temp)
+out <- unzip(temp, exdir = tempdir())
+nb <- read_csv(out,
+               locale = locale(encoding = "utf-8"))
+nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
 ```
 
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## clean the data and select the specific day (sep 10th, 2019)
+```{r}
+## clean name
+colnames(nycd) <- colnames(nycd) %>% 
+  str_to_lower() %>% 
+  str_replace_all(" ", "_")
+colnames(nb) <- colnames(nb) %>% 
+  str_to_lower() %>% 
+  str_replace_all(" ", "_")
+# choose columns
+nb <- nb %>% 
+  dplyr::select(starttime,start_station_latitude,start_station_longitude,end_station_latitude,end_station_longitude)
+
+colnames(nycd)
+colnames(nb)
+
+# filter the target day
+nbday <-nb %>%
+  filter(starttime >= ymd_hms('20190910 00:00:00') & starttime <= ymd_hms('20190911 00:00:00'))
+```
+
+# Time series Analysis
+
+Now, let us go to the first process of our analysis, we first use the ggplot2 to visualize the frequency plot of the bicycle sharing use.
+```{r}
+## Time Series Analysis by ggplot2
+nbday %>% 
+  ggplot(aes(starttime)) + 
+  geom_freqpoly(binwidth = 600)+
+  xlab("start time of using a citi bike") +
+  ylab("Count") +
+  ggtitle("CITI bike use frequency in Sep 10")
+
+```
+
+As shown from the figure, bike-sharing travel has a clear morning and evening peak characteristic, aligning with the traffic morning and evening travel peaks, with slightly higher travel volumes during the evening peak hours than the morning peak.
+
+Let's pick some period of time for next analysis.
+
+```{r}
+nbmorning <- nbday %>%
+  filter(starttime >= ymd_hms('20190910 07:00:00') & starttime <= ymd_hms('20190911 11:00:00'))
+nbnight <- nbday %>%
+  filter(starttime >= ymd_hms('20190910 16:00:00') & starttime <= ymd_hms('20190911 20:00:00'))
+```
+
+## limit the research area
+Let's do something with our map scope, this map contains all the district in NYC, but we don't need all of them.
+By directly looking at the Citi Bike webpage map, I found the community districts that contain bike station.
+Let's filter them!
+```{r}
+CDMap1boro <- nycd %>%  
+  filter(borocd >= "355" & borocd <= "402" & borocd != "356"| borocd >= "301" & borocd <= "309" & borocd != "305"| borocd <= "164" & borocd != "112" ) %>% 
+  `colnames<-`(str_to_lower(colnames(nycd)))
+
+CDMap1boro <- CDMap1boro %>%
+  mutate(borough = case_when(borocd >= 400 ~ "Queens",
+                             borocd >= 300 & borocd < 400 ~ "Brooklyn",
+                             TRUE ~ "Manhattan"))
+
+##Change CRS for boro shp
+CDMap1boro <- CDMap1boro %>% 
+  st_transform(.,crs = "epsg:2263")
+
+##compare data in map
+ggplot(CDMap1boro) +
+  aes(fill = borough) +
+  geom_sf(size = 1L) +
+  scale_fill_hue() +
+  labs(title = "Citi Bike available area", caption = "Figure1:Citi Bike available area in NYC") +
+  theme_bw()
+```
+We can make the df of different time period to compare them in the following steps.
+
+let's also limit the bike data in this scope to ensure that no outliers. (Because Jersey City also has Citi Bike and we don't want to consider this area)
+
+```{r}
+## st to sf
+nbday_start <- st_as_sf(nbday, coords = c("start_station_longitude", "start_station_latitude"), crs = "WGS84")
+nbday_end <- st_as_sf(nbday, coords = c("end_station_longitude", "end_station_latitude"), crs = "WGS84")
+nycmorningstart <- st_as_sf(nbmorning, coords = c("start_station_longitude", "start_station_latitude"),crs = "WGS84")
+nycmorningend <- st_as_sf(nbmorning, coords = c("end_station_longitude", "end_station_latitude"),crs = "WGS84")
+nycnightstart <- st_as_sf(nbnight, coords = c("start_station_longitude", "start_station_latitude"), crs = "WGS84")
+nycnightend <- st_as_sf(nbnight, coords = c("end_station_longitude", "end_station_latitude"),crs = "WGS84")
+nbday_start <- nbday_start %>% st_transform(.,crs="epsg:2263")
+nbday_end <- nbday_end %>% st_transform(.,crs="epsg:2263")
+nycmorningstart <- nycmorningstart %>% st_transform(.,crs="epsg:2263")
+nycmorningend <- nycmorningend %>% st_transform(.,crs="epsg:2263")
+nycnightstart <- nycnightstart %>% st_transform(.,crs="epsg:2263")
+nycnightend <- nycnightend %>% st_transform(.,crs="epsg:2263")
+
+##limit the data in the Manhattan boro
+nbday_start <- nbday_start[CDMap1boro,]
+nbday_end <- nbday_end[CDMap1boro,]
+nycmorningstart <- nycmorningstart[CDMap1boro,]
+nycmorningend <- nycmorningend[CDMap1boro,]
+nycnightstart <- nycnightstart[CDMap1boro,]
+nycnightend <- nycnightend[CDMap1boro,]
+```
+
+# KDE
+We can now do the kernel density estimate plot by the following codes.
+
+```{r}
+#now set a window as the borough boundary
+window <- as.owin(CDMap1boro)
+#plot(window)
+#create a ppp object
+nbday_start_sub<- nbday_start %>%
+  as(., 'Spatial')
+nbday_end_sub<- nbday_end %>%
+  as(., 'Spatial')
+nycmorningstart_sub<- nycmorningstart %>%
+  as(., 'Spatial')
+nycmorningend_sub<- nycmorningend %>%
+  as(., 'Spatial')
+nycnightstart_sub<- nycnightstart %>%
+  as(., 'Spatial')
+nycnightend_sub<- nycnightend %>%
+  as(., 'Spatial')
+
+nbday_start_sub.ppp <- ppp(x=nbday_start_sub@coords[,1],
+                              y=nbday_start_sub@coords[,2],
+                              window=window)
+nbday_end_sub.ppp <- ppp(x=nbday_end_sub@coords[,1],
+                           y=nbday_end_sub@coords[,2],
+                           window=window)
+nycmorningstart_sub.ppp <- ppp(x=nycmorningstart_sub@coords[,1],
+                           y=nycmorningstart_sub@coords[,2],
+                           window=window)
+nycmorningend_sub.ppp <- ppp(x=nycmorningend_sub@coords[,1],
+                           y=nycmorningend_sub@coords[,2],
+                           window=window)
+nycnightstart_sub.ppp <- ppp(x=nycnightstart_sub@coords[,1],
+                           y=nycnightstart_sub@coords[,2],
+                           window=window)
+nycnightend_sub.ppp <- ppp(x=nycnightend_sub@coords[,1],
+                           y=nycnightend_sub@coords[,2],
+                           window=window)
+
+#Kernel Density Estimation
+par(mfrow=c(2,2)) #plot to 2 by 2 array
+nycmorningstart_sub.ppp %>%
+  density(., sigma=1500) %>%
+  plot(main="morning start location")
+
+nycmorningend_sub.ppp %>%
+  density(., sigma=1500) %>%
+  plot(main="morning stop location")
+
+nycnightstart_sub.ppp %>%
+  density(., sigma=1500) %>%
+  plot(main="night start location")
+
+nycnightend_sub.ppp %>%
+  density(., sigma=1500) %>%
+  plot(main="night stop location")
+
+par(mfrow=c(1,1)) #set back to default
+
+```
+Through observation and comparison, it is found that there is little difference in the distribution of the morning and evening start and end points of shared bikes, which are primarily concentrated in the commercial, financial centre of Manhattan ---- lower and midtown Manhattan areas.
+
+## Local Moran's I
+
+for the all day pattern, We can use LM to test the spatial autocorrelation, this is another good way to see the clustering.
+let's calculate the density first:
+
+```{r}
+points_sf_joined <- CDMap1boro%>%
+  st_join(nbday_start)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  #calculate area
+  mutate(area=st_area(.))%>%
+  #then density of the points per ward
+  mutate(density=n/area)%>%
+  #select density and some other variables 
+  dplyr::select(density, borocd, n)
+
+points_sf_joined<- points_sf_joined %>%                    
+  group_by(borocd) %>%         
+  summarise(density = first(density),
+            borocd= first(borocd),
+            count= first(n))
+
+tmap_mode("plot")
+tm_shape(points_sf_joined) +
+  tm_polygons("density",
+              style="jenks",
+              palette="PuOr",
+              midpoint=NA,
+              popup.vars=c("borocd", "density"),
+              title="shared bike density")+
+  tm_compass(position = c("right", "bottom"))+
+  tm_scale_bar(position = c("right", "bottom"))+
+  tm_layout(legend.outside = TRUE)
+
+# standerdized the data for regression analysis
+points_sf_joined$density_scaled <- scale(points_sf_joined$density,center = FALSE, scale = TRUE)
+```
+
+Now we can output the local moran's i or the Gi* to see the autocorrelation.
+```{r}
+#First calculate the centroids of all Wards in London
+
+coordsW <- points_sf_joined%>%
+  st_centroid()%>%
+  st_geometry()
+
+plot(coordsW,axes=TRUE)
+
+#create a neighbours list
+
+nyccd_nb <- points_sf_joined %>%
+  poly2nb(., queen=T)
+
+#plot them
+plot(nyccd_nb, st_geometry(coordsW), col="red")
+#add a map underneath
+plot(points_sf_joined$geometry, add=T)
+
+#create a spatial weights object from these weights
+nyccd.nb <- nyccd_nb %>%
+  nb2listw(., style="C")
+
+head(nyccd.nb$neighbours)
+
+## Testing
+I_CD_Global_Density  <- points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  moran.test(., nyccd.nb)
+I_CD_Global_Density
+
+C_CD_Global_Density <- 
+  points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  geary.test(., nyccd.nb)
+C_CD_Global_Density
+
+G_CD_Global_Density <- 
+  points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  globalG.test(., nyccd.nb)
+G_CD_Global_Density
+
+```
+```{r}
+#use the localmoran function to generate I for each ward in the city
+
+I_CD_Local_count <- points_sf_joined %>%
+  pull(count) %>%
+  as.vector()%>%
+  localmoran(., nyccd.nb)%>%
+  as_tibble()
+
+I_CD_Local_Density <- points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  localmoran(., nyccd.nb)%>%
+  as_tibble()
+
+points_sf_joined <- points_sf_joined %>%
+  mutate(bike_count_I = as.numeric(I_CD_Local_count$Ii))%>%
+  mutate(bike_count_Iz =as.numeric(I_CD_Local_count$Z.Ii))%>%
+  mutate(density_I =as.numeric(I_CD_Local_Density$Ii))%>%
+  mutate(density_Iz =as.numeric(I_CD_Local_Density$Z.Ii))
+
+breaks1<-c(-1000,-2.58,-1.96,-1.65,1.65,1.96,2.58,1000)
+MoranColours<- rev(brewer.pal(8, "RdGy"))
+
+tm_shape(points_sf_joined) +
+  tm_polygons("bike_count_Iz",
+              style="fixed",
+              breaks=breaks1,
+              palette=MoranColours,
+              midpoint=NA,
+              title="Local Moran's I, shared bike in NYC")+
+  tm_compass(position = c("right", "bottom"))+
+  tm_scale_bar(position = c("right", "bottom"))+
+  tm_layout(legend.outside = TRUE)
+
+
+
+                               ## Getis Ord  G∗i statisic for hot and cold spots
+Gi_cd_Local_Density <- points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  localG(., nyccd.nb)
+# head(Gi_cd_Local_Density)
+
+points_sf_joined <- points_sf_joined %>%
+  mutate(density_G = as.numeric(Gi_cd_Local_Density))
+
+GIColours<- rev(brewer.pal(8, "RdBu"))
+#now plot on an interactive map
+
+tm_shape(points_sf_joined) +
+  tm_polygons("density_G",
+              style="fixed",
+              breaks=breaks1,
+              palette=MoranColours,
+              midpoint=NA,
+              title="Gi*")+
+  tm_compass(position = c("right", "bottom"))+
+  tm_scale_bar(position = c("right", "bottom"))+
+  tm_layout(legend.outside = TRUE)
+
+```
+we can see there are some clustrering in the two plot, but what make this happened? or is there any factors affect the travel patterns?
+
+# Regression analysis
+
+to answer "why" we can do some regression analysis.
+first load the facilities file
+```{r}
+nyfc <- read_csv(("https://opendata.arcgis.com/datasets/620697560c3e4070a3623ac216b82ca6_0.csv"),
+                 na = c("", "NA", "n/a"), 
+                 locale = locale(encoding = 'utf-8'),
+```
+
+
+```{r}
+col_names = TRUE)
+
+colnames(nyfc) <- colnames(nyfc) %>% 
+  str_to_lower() %>% 
+  str_replace_all(" ", "_")
+#check all of the columns have been read in correctly
+Datatypelist <- nyfc %>% 
+  summarise_all(class) %>%
+  pivot_longer(everything(), 
+               names_to="All_variables", 
+               values_to="Variable_class")
+Datatypelist
+
+
+#select the necessary columns
+nyfc1 <- nyfc %>% 
+  dplyr::select(factype,facsubgrp,facgroup,facdomain,latitude,longitude)
+# remove na in r - remove rows - na.omit function / option
+nyfc1 <- na.omit(nyfc1)
+
+```
+now we just repeat what we've done to the bicycle sharing dataset, limit them into the map scope.
+
+we also need to seperate the variables into seven types.
+
+```{r}
+# change to spatial data frame
+nyfc1 <- st_as_sf(nyfc1, coords = c("longitude", "latitude"), crs = "WGS84")
+nyfc1 <- nyfc1 %>% 
+  st_transform(.,crs="epsg:2263")
+nyfc1 <- nyfc1[CDMap1boro,]
+
+# making density map to standardize the variables.
+fc_edu <- nyfc1 %>%  
+  filter(facdomain == "EDUCATION, CHILD WELFARE, AND YOUTH" )
+fc_heal <- nyfc1 %>%  
+  filter(facdomain == "HEALTH AND HUMAN SERVICES" )
+fc_park <- nyfc1 %>%  
+  filter(facdomain == "PARKS, GARDENS, AND HISTORICAL SITES" )
+fc_tran <- nyfc1 %>%  
+  filter(facdomain == "CORE INFRASTRUCTURE AND TRANSPORTATION" )
+fc_admin <- nyfc1 %>%  
+  filter(facdomain == "ADMINISTRATION OF GOVERNMENT" )
+fc_publi <- nyfc1 %>%  
+  filter(facdomain == "PUBLIC SAFETY, EMERGENCY SERVICES, AND ADMINISTRATION OF JUSTICE" )
+fc_lib <- nyfc1 %>%  
+  filter(facdomain == "LIBRARIES AND CULTURAL PROGRAMS" )
+```
+
+Next step is quite boring, we need to repeatly make the density of each independent variables.
+
+```{r}
+## edu file
+gwrfc_edu <- CDMap1boro%>%
+  st_join(fc_edu)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_edu<- gwrfc_edu %>%                    
+  group_by(borocd) %>%         
+  summarise(density_edu = first(density),
+            borocd= first(borocd),
+            count_edu= first(n))
+gwrfc_edu<- gwrfc_edu %>%
+  st_drop_geometry()
+gwrfc_edu$density_edu_scaled <- scale(gwrfc_edu$density_edu,center = FALSE, scale = TRUE)
+  
+## heal file
+gwrfc_heal <- CDMap1boro%>%
+  st_join(fc_heal)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_heal<- gwrfc_heal %>%                    
+  group_by(borocd) %>%         
+  summarise(density_heal = first(density),
+            borocd= first(borocd),
+            count_heal= first(n))
+gwrfc_heal<- gwrfc_heal %>%
+  st_drop_geometry()
+gwrfc_heal$density_heal_scaled <- scale(gwrfc_heal$density_heal,center = FALSE, scale = TRUE)
+
+## tans file
+gwrfc_tran <- CDMap1boro%>%
+  st_join(fc_tran)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_tran<- gwrfc_tran %>%                    
+  group_by(borocd) %>%         
+  summarise(density_tran = first(density),
+            borocd= first(borocd),
+            count_tran= first(n))
+gwrfc_tran<- gwrfc_tran %>%
+  st_drop_geometry()
+gwrfc_tran$density_tran_scaled <- scale(gwrfc_tran$density_tran,center = FALSE, scale = TRUE)
+
+## park file
+gwrfc_park <- CDMap1boro%>%
+  st_join(fc_park)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_park<- gwrfc_park %>%                    
+  group_by(borocd) %>%         
+  summarise(density_park = first(density),
+            borocd= first(borocd),
+            count_park= first(n))
+gwrfc_park<- gwrfc_park %>%
+  st_drop_geometry()
+gwrfc_park$density_park_scaled <- scale(gwrfc_park$density_park,center = FALSE, scale = TRUE)
+
+
+## admin file
+gwrfc_admin <- CDMap1boro%>%
+  st_join(fc_admin)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_admin<- gwrfc_admin %>%                    
+  group_by(borocd) %>%         
+  summarise(density_admin = first(density),
+            borocd= first(borocd),
+            count_admin= first(n))
+gwrfc_admin<- gwrfc_admin %>%
+  st_drop_geometry()
+gwrfc_admin$density_admin_scaled <- scale(gwrfc_admin$density_admin,center = FALSE, scale = TRUE)
+
+## public file
+gwrfc_publi <- CDMap1boro%>%
+  st_join(fc_publi)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_publi<- gwrfc_publi %>%                    
+  group_by(borocd) %>%         
+  summarise(density_publi = first(density),
+            borocd= first(borocd),
+            count_publi= first(n))
+gwrfc_publi<- gwrfc_publi %>%
+  st_drop_geometry()
+gwrfc_publi$density_publi_scaled <- scale(gwrfc_publi$density_publi,center = FALSE, scale = TRUE)
+
+
+## library file
+gwrfc_lib <- CDMap1boro%>%
+  st_join(fc_lib)%>%
+  add_count(borocd)%>%
+  janitor::clean_names()%>%
+  mutate(area=st_area(.))%>%
+  mutate(density=n/area)%>%
+  dplyr::select(density, borocd, n)
+gwrfc_lib<- gwrfc_lib %>%                    
+  group_by(borocd) %>%         
+  summarise(density_lib = first(density),
+            borocd= first(borocd),
+            count_lib= first(n))
+gwrfc_lib<- gwrfc_lib %>%
+  st_drop_geometry()
+gwrfc_lib$density_lib_scaled <- scale(gwrfc_lib$density_lib,center = FALSE, scale = TRUE)
+
+## join all data
+gwrfc <- points_sf_joined%>%
+  left_join(.,
+            gwrfc_edu, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
+            gwrfc_heal, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
+            gwrfc_tran, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
+            gwrfc_park, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
+            gwrfc_publi, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
+            gwrfc_admin, 
+            by = c("borocd" = "borocd"))
+gwrfc <- gwrfc%>%
+  left_join(.,
+            gwrfc_lib, 
+            by = c("borocd" = "borocd"))
+colnames(gwrfc)
+
+```
+Now we can plot them for a glance.
+
+```{r}
+# plot each map
+tmap_mode("plot")
+tm1 <- tm_shape(gwrfc) + 
+  tm_polygons("density_edu", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(a)", position=c(0,0.85), size=1.5)
+
+tm2 <- tm_shape(gwrfc) + 
+  tm_polygons("density_heal",
+              palette="PuBu") + 
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(b)", position=c(0,0.85), size=1.5)
+tm3 <- tm_shape(gwrfc) + 
+  tm_polygons("density_tran",
+              palette="PuBu") + 
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(c)", position=c(0,0.85), size=1.5)
+tm4 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_park", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(d)", position=c(0,0.85), size=1.5)
+
+tm5 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_publi", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(e)", position=c(0,0.85), size=1.5)
+
+tm6 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_admin", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(f)", position=c(0,0.85), size=1.5)
+
+tm7 <- tm_shape(gwrfc)+ 
+  tm_polygons("density_lib", 
+              palette="PuBu")+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("(g)", position=c(0,0.85), size=1.5)
+
+legend <- tm_shape(gwrfc) +
+  tm_polygons("density_park",
+              palette="PuBu",
+              title = "Density of Facilities") +
+  tm_scale_bar(position=c(0.2,0.04), text.size=0.6)+
+  tm_compass(north=0, position=c(0.025,0.4))+
+  tm_layout(legend.only = TRUE, legend.position=c(0.2,0.25),asp=0.1)
+
+t=tmap_arrange(tm1, tm2, tm3,tm4,tm5,tm6,tm7, legend, ncol=4)
+
+t
+```
+
+take a look at the correlation of dependent and independent variables by using scatter plot.
+I will only do it once, but we can check all the cases by change the x name.
+
+REMEMBER, using the scaled number for regression analysis!
+
+```{r}
+#plot with a regression line - note, I've added some jitter here as the x-scale is rounded
+q <- qplot(x = `density_park_scaled`, 
+           y = `density_scaled`, 
+           data=gwrfc)
+q + stat_smooth(method="lm", se=FALSE, size=1) + 
+  geom_jitter()
+```
+
+## OLS model
+
+Let's firstly make the OLS model
+
+DO NOT forget to do the vif after the OLS analysis, in my case, I found "density_publi_scaled" and "density_lib_scaled" has extremely high multicollinearity. so I removed it in the final model.
+
+```{r}
+#select some variables from the data file
+gwrfc_1 <- gwrfc %>%
+  dplyr::select(density_scaled,
+                density_edu_scaled,
+                density_heal_scaled,
+                density_tran_scaled,
+                density_park_scaled,
+                density_publi_scaled,
+                density_admin_scaled,
+                density_lib_scaled)
+
+#run a final OLS model
+model_final <- lm(density_scaled ~  
+                  density_edu_scaled+
+                  density_heal_scaled+
+                  density_tran_scaled+
+                  density_park_scaled+
+                  density_admin_scaled,
+                  data = gwrfc_1)
+vif(model_final)
+tidy(model_final)
+summary(model_final)
+glance(model_final)
+anova(model_final)
+AICc(model_final)
+
+```
+
+Let's check the model fitness and residuals correlation
+```{r}
+##residuals
+model_data <- model_final %>%
+  augment(., gwrfc_1)
+#plot residuals
+model_data%>%
+  dplyr::select(.resid)%>%
+  pull()%>%
+  qplot()+ 
+  geom_histogram(binwidth = 0.01) 
+
+gwrfc_1 <- gwrfc_1 %>%
+  mutate(modelOLSresids = residuals(model_final))
+
+#print some model diagnositcs. 
+par(mfrow=c(2,2))    #plot to 2 by 2 array
+plot(model_final)
+
+#now plot the residuals
+tmap_mode("view")
+qtm(gwrfc_1, fill = "modelOLSresids")
+```
+```{r}
+#knn
+knn_nyccd <-coordsW %>%
+  knearneigh(., k=4)
+nyccd_knn <- knn_nyccd %>%
+  knn2nb()
+nyccd_knn_weight <- nyccd_knn %>%
+  nb2listw(., style="C")
+#queen
+nyccd_nb_weight <- nyccd_nb %>%
+  nb2listw(., style="C")
+
+Queen  <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(modelOLSresids)%>%
+  pull()%>%
+  moran.test(., nyccd_nb_weight)%>%
+  tidy()
+Nearest_neighbour <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(modelOLSresids)%>%
+  pull()%>%
+  moran.test(., nyccd_knn_weight)%>%
+  tidy()
+Queen 
+Nearest_neighbour
+```
+From here we can find that the residuals lost its spatial autocorrelation when it comes to KNN method of neighbouring, but in queen's method case it still remained, let's try some other models
+
+## Sptial lag regression
+
+when can do the SLM to check the time's impact.
+```{r}
+#spatial lag regre
+model_final2queen <- lagsarlm(density_scaled ~  
+                                density_edu_scaled+
+                                density_heal_scaled+
+                                density_tran_scaled+
+                                density_park_scaled+
+                                density_admin_scaled,
+                                data = gwrfc_1, 
+                                nb2listw(nyccd_nb, style="C"), 
+                                method = "eigen")
+tidy(model_final2queen)
+summary(model_final2queen)
+glance(model_final2queen)
+anova(model_final2queen)
+AICc(model_final2queen)
+```
+
+better than OLS, but not that obviouse, let's check the residuals spatial autocorrelation
+```{r}
+gwrfc_1 <- gwrfc_1 %>%
+  mutate(slag_dv_model2_queen_resids = residuals(model_final2queen))
+queenMoran <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(slag_dv_model2_queen_resids)%>%
+  pull()%>%
+  moran.test(., nyccd_nb_weight)%>%
+  tidy()
+queenMoran
+```
+well, the autocorrelation still remain in 0.05 level, maybe time did not affect much, let's check other model.
+
+## spatial error model
+
+What about spatial error model?
+```{r}
+#spatial error regre
+model_final3 <- errorsarlm(density_scaled ~  
+                             density_edu_scaled+
+                             density_heal_scaled+
+                             density_tran_scaled+
+                             density_park_scaled+
+                             density_admin_scaled,
+                           data = gwrfc_1, 
+                         nb2listw(nyccd_nb, style="C"), 
+                         method = "eigen")
+tidy(model_final3)
+summary(model_final3)
+glance(model_final3)
+anova(model_final3)
+AICc(model_final3)
+```
+
+Much better! And the Moran's I of residuals?
+
+```{r}
+gwrfc_1 <- gwrfc_1 %>%
+  mutate(ser_dv_model3_queen_resids = residuals(model_final3))
+queenMoran2 <- gwrfc_1 %>%
+  st_drop_geometry()%>%
+  dplyr::select(ser_dv_model3_queen_resids)%>%
+  pull()%>%
+  moran.test(., nyccd_nb_weight)%>%
+  tidy()
+queenMoran2
+
+#now plot the residuals
+tmap_mode("view")
+qtm(gwrfc_1, fill = "ser_dv_model3_queen_resids")
+```
+
+it seems that SEM completely elimated the Spatial autocorrelation issue, and model fit indexes are much more better.
+
+As the high model fit of the SEM is itself indicative of the problem, i.e. this study may have missed some factors in the construction of the model that contributed to the problem of spatial autocorrelation.
+
+Perhaps this is because this study did not take into account the station density of Citi Bike and the population density of different areas, as station density can also vary from district to district, which may also indirectly affect people's travel patterns, and the difference in population density also leads to differences in the number of users between different areas. Future research might try to take these two factors into account in the model.

@@ -38,19 +38,15 @@ library(tmaptools)
 
 
 ##First, get the London Borough Boundaries
+temp <- tempfile(fileext = ".zip")
+download.file("https://github.com/Lingweiz1998/FPgis/raw/master/data/201909-citibike-tripdata.zip",
+              temp)
+out <- unzip(temp, exdir = tempdir())
+nb <- read_csv(out,
+               locale = locale(encoding = "utf-8"))
 nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=pgeojson")
 
 
-nb <- read_csv(here::here("data", "rawdata","201909-citibike-tripdata.csv"),
-               locale = locale(encoding = "utf-8"))
-
-nb <- read_csv(unz(here::here("data", "rawdata","201909-citibike-tripdata.zip"),
-                     "201909-citibike-tripdata.csv"),
-               locale = locale(encoding = "utf-8")
-                 )
-
-id <- "0B-wuZ2XMFIBUd09Ob0pKVkRzQTA" # google file ID
-read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", id))
 
 ## clean name
 colnames(nycd) <- colnames(nycd) %>% 
@@ -66,11 +62,6 @@ nb <- distinct(nb)
 # choose columns
 nb <- nb %>% 
   dplyr::select(starttime,start_station_latitude,start_station_longitude,end_station_latitude,end_station_longitude)
-
-
-
-# filter date 
-nbweek <- nb %>%
-  filter(starttime >= ymd_hms('20190908 00:00:00') & starttime <= ymd_hms('20190914 00:00:00'))
+# filter the target day
 nbday <-nb %>%
   filter(starttime >= ymd_hms('20190910 00:00:00') & starttime <= ymd_hms('20190911 00:00:00'))
