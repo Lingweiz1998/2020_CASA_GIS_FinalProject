@@ -18,7 +18,7 @@ this study aims to look at the travel patterns of bicycle sharing from a spatial
 2: whether the travel patterns of bike-sharing receive other factors' influence.
 
 ## Firstly, set the library
-```{r}
+```{r message=FALSE,warning=TRUE}
 library(broom)
 library(car)
 library(chron)
@@ -59,7 +59,7 @@ library(tmaptools)
 
 load the bike share dataset and map
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 ##First, get the London Borough Boundaries
 temp <- tempfile(fileext = ".zip")
 download.file("https://github.com/Lingweiz1998/FPgis/raw/master/data/201909-citibike-tripdata.zip",
@@ -73,7 +73,7 @@ nycd <- st_read("https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/servi
 
 
 ## clean the data and select the specific day (sep 10th, 2019)
-```{r}
+```{r message=FALSE,warning=TRUE}
 ## clean name
 colnames(nycd) <- colnames(nycd) %>% 
   str_to_lower() %>% 
@@ -96,7 +96,7 @@ nbday <-nb %>%
 # Time series Analysis
 
 Now, let us go to the first process of our analysis, we first use the ggplot2 to visualize the frequency plot of the bicycle sharing use.
-```{r}
+```{r message=FALSE,warning=TRUE}
 ## Time Series Analysis by ggplot2
 nbday %>% 
   ggplot(aes(starttime)) + 
@@ -111,7 +111,7 @@ As shown from the figure, bike-sharing travel has a clear morning and evening pe
 
 Let's pick some period of time for next analysis.
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 nbmorning <- nbday %>%
   filter(starttime >= ymd_hms('20190910 07:00:00') & starttime <= ymd_hms('20190911 11:00:00'))
 nbnight <- nbday %>%
@@ -122,7 +122,7 @@ nbnight <- nbday %>%
 Let's do something with our map scope, this map contains all the district in NYC, but we don't need all of them.
 By directly looking at the Citi Bike webpage map, I found the community districts that contain bike station.
 Let's filter them!
-```{r}
+```{r message=FALSE,warning=TRUE}
 CDMap1boro <- nycd %>%  
   filter(borocd >= "355" & borocd <= "402" & borocd != "356"| borocd >= "301" & borocd <= "309" & borocd != "305"| borocd <= "164" & borocd != "112" ) %>% 
   `colnames<-`(str_to_lower(colnames(nycd)))
@@ -148,7 +148,7 @@ We can make the df of different time period to compare them in the following ste
 
 let's also limit the bike data in this scope to ensure that no outliers. (Because Jersey City also has Citi Bike and we don't want to consider this area)
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 ## st to sf
 nbday_start <- st_as_sf(nbday, coords = c("start_station_longitude", "start_station_latitude"), crs = "WGS84")
 nbday_end <- st_as_sf(nbday, coords = c("end_station_longitude", "end_station_latitude"), crs = "WGS84")
@@ -175,7 +175,7 @@ nycnightend <- nycnightend[CDMap1boro,]
 # KDE
 We can now do the kernel density estimate plot by the following codes.
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 #now set a window as the borough boundary
 window <- as.owin(CDMap1boro)
 #plot(window)
@@ -240,7 +240,7 @@ Through observation and comparison, it is found that there is little difference 
 for the all day pattern, We can use LM to test the spatial autocorrelation, this is another good way to see the clustering.
 let's calculate the density first:
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 points_sf_joined <- CDMap1boro%>%
   st_join(nbday_start)%>%
   add_count(borocd)%>%
@@ -275,7 +275,7 @@ points_sf_joined$density_scaled <- scale(points_sf_joined$density,center = FALSE
 ```
 
 Now we can output the local moran's i or the Gi* to see the autocorrelation.
-```{r}
+```{r message=FALSE,warning=TRUE}
 #First calculate the centroids of all Wards in London
 
 coordsW <- points_sf_joined%>%
@@ -322,7 +322,7 @@ G_CD_Global_Density <-
 G_CD_Global_Density
 
 ```
-```{r}
+```{r message=FALSE,warning=TRUE}
 #use the localmoran function to generate I for each ward in the city
 
 I_CD_Local_count <- points_sf_joined %>%
@@ -390,7 +390,7 @@ we can see there are some clustrering in the two plot, but what make this happen
 
 to answer "why" we can do some regression analysis.
 first load the facilities file
-```{r}
+```{r message=FALSE,warning=TRUE}
 nyfc <- read_csv(("https://opendata.arcgis.com/datasets/620697560c3e4070a3623ac216b82ca6_0.csv"),
                  na = c("", "NA", "n/a"), 
                  locale = locale(encoding = 'utf-8'),
@@ -398,7 +398,7 @@ nyfc <- read_csv(("https://opendata.arcgis.com/datasets/620697560c3e4070a3623ac2
 ```
 
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 
 colnames(nyfc) <- colnames(nyfc) %>% 
   str_to_lower() %>% 
@@ -423,7 +423,7 @@ now we just repeat what we've done to the bicycle sharing dataset, limit them in
 
 we also need to seperate the variables into seven types.
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 # change to spatial data frame
 nyfc1 <- st_as_sf(nyfc1, coords = c("longitude", "latitude"), crs = "WGS84")
 nyfc1 <- nyfc1 %>% 
@@ -449,7 +449,7 @@ fc_lib <- nyfc1 %>%
 
 Next step is quite boring, we need to repeatly make the density of each independent variables.
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 ## edu file
 gwrfc_edu <- CDMap1boro%>%
   st_join(fc_edu)%>%
@@ -605,7 +605,7 @@ colnames(gwrfc)
 ```
 Now we can plot them for a glance.
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 # plot each map
 tmap_mode("plot")
 tm1 <- tm_shape(gwrfc) + 
@@ -673,7 +673,7 @@ I will only do it once, but we can check all the cases by change the x name.
 
 REMEMBER, using the scaled number for regression analysis!
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 #plot with a regression line - note, I've added some jitter here as the x-scale is rounded
 q <- qplot(x = `density_park_scaled`, 
            y = `density_scaled`, 
@@ -688,7 +688,7 @@ Let's firstly make the OLS model
 
 DO NOT forget to do the vif after the OLS analysis, in my case, I found "density_publi_scaled" and "density_lib_scaled" has extremely high multicollinearity. so I removed it in the final model.
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 #select some variables from the data file
 gwrfc_1 <- gwrfc %>%
   dplyr::select(density_scaled,
@@ -718,7 +718,7 @@ AICc(model_final)
 ```
 
 Let's check the model fitness and residuals correlation
-```{r}
+```{r message=FALSE,warning=TRUE}
 ##residuals
 model_data <- model_final %>%
   augment(., gwrfc_1)
@@ -740,7 +740,7 @@ plot(model_final)
 tmap_mode("view")
 qtm(gwrfc_1, fill = "modelOLSresids")
 ```
-```{r}
+```{r message=FALSE,warning=TRUE}
 #knn
 knn_nyccd <-coordsW %>%
   knearneigh(., k=4)
@@ -772,7 +772,7 @@ From here we can find that the residuals lost its spatial autocorrelation when i
 ## Sptial lag regression
 
 when can do the SLM to check the time's impact.
-```{r}
+```{r message=FALSE,warning=TRUE}
 #spatial lag regre
 model_final2queen <- lagsarlm(density_scaled ~  
                                 density_edu_scaled+
@@ -791,7 +791,7 @@ AICc(model_final2queen)
 ```
 
 better than OLS, but not that obviouse, let's check the residuals spatial autocorrelation
-```{r}
+```{r message=FALSE,warning=TRUE}
 gwrfc_1 <- gwrfc_1 %>%
   mutate(slag_dv_model2_queen_resids = residuals(model_final2queen))
 queenMoran <- gwrfc_1 %>%
@@ -807,7 +807,7 @@ well, the autocorrelation still remain in 0.05 level, maybe time did not affect 
 ## spatial error model
 
 What about spatial error model?
-```{r}
+```{r message=FALSE,warning=TRUE}
 #spatial error regre
 model_final3 <- errorsarlm(density_scaled ~  
                              density_edu_scaled+
@@ -827,7 +827,7 @@ AICc(model_final3)
 
 Much better! And the Moran's I of residuals?
 
-```{r}
+```{r message=FALSE,warning=TRUE}
 gwrfc_1 <- gwrfc_1 %>%
   mutate(ser_dv_model3_queen_resids = residuals(model_final3))
 queenMoran2 <- gwrfc_1 %>%
