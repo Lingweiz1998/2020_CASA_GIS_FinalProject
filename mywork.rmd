@@ -11,12 +11,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Exploring the factors affecting bike-sharing travel patterns from a spatial perspective: The case study of New York's Citi Bike
-
-this study aims to look at the travel patterns of bicycle sharing from a spatial perspective and use spatial lag regression models, spatial error regression models and geographically weighted regression models to incorporate spatial autocorrelation factors into the study model. By comparing these models, the impact of surrounding facilities on demand for bicycle sharing travel is investigated. The study area is the coverage area of Citi Bike New York. This study answers two main questions: 
-1: what the daily travel patterns of bike-sharing are
-2: whether the travel patterns of bike-sharing receive other factors' influence.
-
 ## Firstly, set the library
 ```{r message=FALSE,warning=TRUE}
 library(broom)
@@ -106,8 +100,6 @@ nbday %>%
   ggtitle("CITI bike use frequency in Sep 10")
 
 ```
-
-As shown from the figure, bike-sharing travel has a clear morning and evening peak characteristic, aligning with the traffic morning and evening travel peaks, with slightly higher travel volumes during the evening peak hours than the morning peak.
 
 Let's pick some period of time for next analysis.
 
@@ -233,7 +225,6 @@ nycnightend_sub.ppp %>%
 par(mfrow=c(1,1)) #set back to default
 
 ```
-Through observation and comparison, it is found that there is little difference in the distribution of the morning and evening start and end points of shared bikes, which are primarily concentrated in the commercial, financial centre of Manhattan ---- lower and midtown Manhattan areas.
 
 ## Local Moran's I
 
@@ -844,7 +835,3 @@ qtm(gwrfc_1, fill = "ser_dv_model3_queen_resids")
 ```
 
 it seems that SEM completely elimated the Spatial autocorrelation issue, and model fit indexes are much more better.
-
-As the high model fit of the SEM is itself indicative of the problem, i.e. this study may have missed some factors in the construction of the model that contributed to the problem of spatial autocorrelation.
-
-Perhaps this is because this study did not take into account the station density of Citi Bike and the population density of different areas, as station density can also vary from district to district, which may also indirectly affect people's travel patterns, and the difference in population density also leads to differences in the number of users between different areas. Future research might try to take these two factors into account in the model.
